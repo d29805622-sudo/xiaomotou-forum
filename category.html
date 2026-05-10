@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>板块帖子 - 小魔头Galgame论坛</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1a1423 0%, #2c1b54 50%, #1a1423 100%);
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+        .top-title {
+            width: 100%;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #4b2e83, #2c1b54);
+            text-align: center;
+            border-bottom: 4px solid #c9a8ff;
+        }
+        .top-title h1 {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 42px;
+            letter-spacing: 4px;
+            color: #ffe699;
+            text-shadow: 3px 3px 8px #000;
+        }
+        .nav {
+            display: flex;
+            width: 100%;
+            background: #251a3d;
+        }
+        .nav a {
+            flex: 1;
+            text-align: center;
+            padding: 14px 0;
+            color: #fff;
+            text-decoration: none;
+            font-size: 16px;
+            border-right: 1px solid #3c2b63;
+            transition: background 0.3s;
+        }
+        .nav a:hover { background: #583ea1; }
+        .user-bar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(37, 26, 61, 0.9);
+            gap: 15px;
+        }
+        .user-bar a {
+            color: #c9a8ff;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            background: #7c52d6;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .user-bar a:hover { background: #946aff; }
+        .user-info { color: #ffd878; font-size: 14px; }
+        .main {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .page-header h2 {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 28px;
+            color: #ffd878;
+        }
+        .new-post-btn {
+            background: linear-gradient(135deg, #7c52d6, #5e3cad);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .new-post-btn:hover {
+            background: linear-gradient(135deg, #946aff, #7c52d6);
+            transform: translateY(-2px);
+        }
+        .post-list {
+            background: #271c44;
+            border-radius: 12px;
+            border: 1px solid #6348a0;
+            overflow: hidden;
+        }
+        .post-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 20px;
+            border-bottom: 1px solid #3d2e66;
+            transition: background 0.3s;
+        }
+        .post-item:last-child { border-bottom: none; }
+        .post-item:hover { background: rgba(124, 82, 214, 0.1); }
+        .post-info h3 {
+            font-size: 17px;
+            margin-bottom: 6px;
+        }
+        .post-info h3 a {
+            color: #e0d4f5;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .post-info h3 a:hover { color: #ffd878; }
+        .post-meta {
+            font-size: 13px;
+            color: #9988bb;
+        }
+        .post-meta span { margin-right: 15px; }
+        .post-stats {
+            text-align: right;
+            color: #9988bb;
+            font-size: 13px;
+        }
+        .post-stats div { margin-bottom: 4px; }
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9988bb;
+        }
+        footer {
+            text-align: center;
+            padding: 25px;
+            color: #9988bb;
+            font-size: 14px;
+            margin-top: 40px;
+        }
+        @media (max-width: 768px) {
+            .top-title h1 { font-size: 32px; }
+            .page-header { flex-direction: column; gap: 15px; }
+            .post-item { flex-direction: column; text-align: center; gap: 10px; }
+            .post-stats { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-title">
+        <h1>小魔头Galgame</h1>
+    </div>
+
+    <div class="nav">
+        <a href="index.html">首页</a>
+        <a href="#" id="currentCate">加载中...</a>
+        <a href="#">游戏资源</a>
+        <a href="#">文件下载</a>
+    </div>
+
+    <div id="userBar" class="user-bar"></div>
+
+    <div class="main">
+        <div class="page-header">
+            <h2 id="categoryTitle">板块名称</h2>
+            <a href="#" id="newPostBtn" class="new-post-btn">发布帖子</a>
+        </div>
+
+        <div id="postList" class="post-list">
+            <div class="empty">加载中...</div>
+        </div>
+    </div>
+
+    <footer>
+        小魔头Galgame论坛 · 全站免费资源
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
+        import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        const categories = {
+            '1': { name: '小魔头暴露啦专区', desc: '动漫剧情、角色、同人讨论' },
+            '2': { name: 'Galgame交流区', desc: 'Galgame玩法、剧情、测评' },
+            '3': { name: '游戏包上传下载', desc: 'Galgame游戏包、补丁、MOD上传下载' },
+            '4': { name: '同人创作区', desc: '同人文、同人图、剪辑作品' }
+        };
+
+        const params = new URLSearchParams(window.location.search);
+        const categoryId = params.get('id') || '1';
+
+        document.getElementById('currentCate').textContent = categories[categoryId].name;
+        document.getElementById('categoryTitle').textContent = categories[categoryId].name;
+
+        onAuthStateChanged(auth, (user) => {
+            const userBar = document.getElementById('userBar');
+            if (user) {
+                userBar.innerHTML = `
+                    <span class="user-info">欢迎，${user.displayName || user.email}</span>
+                    <a href="admin.html">管理后台</a>
+                    <a href="#" onclick="logout()">退出</a>
+                `;
+                document.getElementById('newPostBtn').href = `new-post.html?cate_id=${categoryId}`;
+            } else {
+                userBar.innerHTML = `
+                    <a href="login.html">登录</a>
+                    <a href="register.html">注册</a>
+                `;
+                document.getElementById('newPostBtn').textContent = '登录后发帖';
+                document.getElementById('newPostBtn').href = 'login.html';
+            }
+        });
+
+        async function loadPosts() {
+            const postList = document.getElementById('postList');
+            try {
+                const snapshot = await get(ref(database, 'posts'));
+                
+                if (!snapshot.exists()) {
+                    postList.innerHTML = '<div class="empty">暂无帖子，成为第一个发帖的人吧！</div>';
+                    return;
+                }
+
+                const allPosts = snapshot.val();
+                const categoryPosts = Object.entries(allPosts)
+                    .filter(([id, post]) => post.cateId == categoryId)
+                    .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt));
+
+                if (categoryPosts.length === 0) {
+                    postList.innerHTML = '<div class="empty">暂无帖子，成为第一个发帖的人吧！</div>';
+                    return;
+                }
+
+                postList.innerHTML = categoryPosts.map(([id, post]) => `
+                    <div class="post-item">
+                        <div class="post-info">
+                            <h3><a href="post.html?id=${id}">${post.title}</a></h3>
+                            <div class="post-meta">
+                                <span>作者：${post.authorName || '匿名'}</span>
+                                <span>${timeAgo(post.createdAt)}</span>
+                                ${post.fileUrl ? '<span style="color: #7c52d6;">📎 附件</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="post-stats">
+                            <div>评论：${post.comments ? Object.keys(post.comments).length : 0}</div>
+                            <div>下载：${post.downloadCount || 0}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载帖子失败:', error);
+                postList.innerHTML = '<div class="empty">加载失败，请刷新页面</div>';
+            }
+        }
+
+        function timeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = (now - date) / 1000;
+
+            if (diff < 60) return Math.floor(diff) + '秒前';
+            if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+            if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+            if (diff < 2592000) return Math.floor(diff / 86400) + '天前';
+            return date.toLocaleDateString('zh-CN');
+        }
+
+        window.logout = function() {
+            if (confirm('确定要退出登录吗？')) {
+                signOut(auth).then(() => {
+                    window.location.href = 'index.html';
+                });
+            }
+        };
+
+        loadPosts();
+    </script>
+</body>
+</html>

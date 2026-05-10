@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 小魔头Galgame论坛</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1a1423 0%, #2c1b54 50%, #1a1423 100%);
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #4b2e83, #2c1b54);
+            padding: 20px;
+            border-bottom: 4px solid #c9a8ff;
+        }
+        .header h1 {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 36px;
+            color: #ffe699;
+            text-align: center;
+        }
+        .nav {
+            display: flex;
+            justify-content: center;
+            background: #251a3d;
+            padding: 15px;
+            gap: 10px;
+        }
+        .nav a {
+            padding: 10px 20px;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            background: #3d2e66;
+            transition: all 0.3s;
+        }
+        .nav a:hover, .nav a.active {
+            background: #7c52d6;
+        }
+        .main {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #271c44;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid #6348a0;
+        }
+        .stat-card .num {
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffd878;
+        }
+        .stat-card .label {
+            color: #9988bb;
+            margin-top: 8px;
+        }
+        .panel {
+            background: #271c44;
+            border-radius: 12px;
+            border: 1px solid #6348a0;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .panel h2 {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 24px;
+            color: #ffd878;
+            margin-bottom: 20px;
+            border-left: 4px solid #c9a8ff;
+            padding-left: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #3d2e66;
+        }
+        th {
+            color: #c9a8ff;
+            background: #1a1423;
+        }
+        tr:hover { background: rgba(124, 82, 214, 0.1); }
+        .btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            margin-right: 5px;
+        }
+        .btn-delete { background: #dc3545; color: #fff; }
+        .btn-admin { background: #ffc107; color: #000; }
+        .back-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #7c52d6;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .back-link:hover { background: #946aff; }
+        footer {
+            text-align: center;
+            padding: 25px;
+            color: #9988bb;
+            font-size: 14px;
+            margin-top: 40px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #c9a8ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>管理后台</h1>
+    </div>
+
+    <div class="nav">
+        <a href="#" onclick="location.reload()">刷新数据</a>
+        <a href="index.html">返回前台</a>
+    </div>
+
+    <div class="main">
+        <div id="adminCheck" class="loading">正在验证管理员权限...</div>
+
+        <div id="adminContent" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="num" id="userCount">0</div>
+                    <div class="label">会员总数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num" id="postCount">0</div>
+                    <div class="label">帖子总数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num" id="commentCount">0</div>
+                    <div class="label">评论总数</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>用户管理</h2>
+                <div id="userList">加载中...</div>
+            </div>
+
+            <div class="panel">
+                <h2>最新帖子</h2>
+                <div id="postList">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        小魔头Galgame论坛 · 管理后台
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
+        import { getDatabase, ref, get, remove, update } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        const adminContent = document.getElementById('adminContent');
+        const adminCheck = document.getElementById('adminCheck');
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                alert('请先登录');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                const userRef = ref(database, `users/${user.uid}`);
+                const snapshot = await get(userRef);
+                
+                if (!snapshot.exists() || snapshot.val().role !== 2) {
+                    alert('您没有管理员权限');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                adminCheck.style.display = 'none';
+                adminContent.style.display = 'block';
+                
+                loadStats();
+                loadUsers();
+                loadPosts();
+            } catch (error) {
+                console.error('验证失败:', error);
+                alert('验证失败');
+                window.location.href = 'login.html';
+            }
+        });
+
+        async function loadStats() {
+            try {
+                const usersSnapshot = await get(ref(database, 'users'));
+                const userCount = usersSnapshot.exists() ? Object.keys(usersSnapshot.val()).length : 0;
+                
+                const postsSnapshot = await get(ref(database, 'posts'));
+                const posts = postsSnapshot.exists() ? postsSnapshot.val() : {};
+                const postCount = Object.keys(posts).length;
+                
+                let commentCount = 0;
+                Object.values(posts).forEach(post => {
+                    if (post.comments) {
+                        commentCount += Object.keys(post.comments).length;
+                    }
+                });
+
+                document.getElementById('userCount').textContent = userCount;
+                document.getElementById('postCount').textContent = postCount;
+                document.getElementById('commentCount').textContent = commentCount;
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+            }
+        }
+
+        async function loadUsers() {
+            const userList = document.getElementById('userList');
+            try {
+                const snapshot = await get(ref(database, 'users'));
+                
+                if (!snapshot.exists()) {
+                    userList.innerHTML = '<p style="text-align:center;color:#9988bb;">暂无用户</p>';
+                    return;
+                }
+
+                const users = snapshot.val();
+                const userArray = Object.entries(users);
+
+                userList.innerHTML = `
+                    <table>
+                        <tr>
+                            <th>用户</th>
+                            <th>邮箱</th>
+                            <th>角色</th>
+                            <th>注册时间</th>
+                            <th>操作</th>
+                        </tr>
+                        ${userArray.map(([uid, user]) => `
+                            <tr>
+                                <td>${user.nickname || '未设置昵称'}</td>
+                                <td>${user.email || '无'}</td>
+                                <td>${user.role === 2 ? '管理员' : (user.role === 1 ? '版主' : '普通用户')}</td>
+                                <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString('zh-CN') : '未知'}</td>
+                                <td>
+                                    ${user.role !== 2 ? `
+                                        <button class="btn btn-admin" onclick="setAdmin('${uid}')">设为管理员</button>
+                                        <button class="btn btn-delete" onclick="deleteUser('${uid}')">删除</button>
+                                    ` : '<span style="color:#9988bb;">系统管理员</span>'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+            } catch (error) {
+                console.error('加载用户列表失败:', error);
+                userList.innerHTML = '<p style="text-align:center;color:#dc3545;">加载失败</p>';
+            }
+        }
+
+        async function loadPosts() {
+            const postList = document.getElementById('postList');
+            try {
+                const snapshot = await get(ref(database, 'posts'));
+                
+                if (!snapshot.exists()) {
+                    postList.innerHTML = '<p style="text-align:center;color:#9988bb;">暂无帖子</p>';
+                    return;
+                }
+
+                const posts = snapshot.val();
+                const postArray = Object.entries(posts)
+                    .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
+                    .slice(0, 20);
+
+                postList.innerHTML = `
+                    <table>
+                        <tr>
+                            <th>标题</th>
+                            <th>作者</th>
+                            <th>评论数</th>
+                            <th>时间</th>
+                            <th>操作</th>
+                        </tr>
+                        ${postArray.map(([pid, post]) => `
+                            <tr>
+                                <td><a href="post.html?id=${pid}" style="color:#c9a8ff;">${post.title}</a></td>
+                                <td>${post.authorName || '匿名'}</td>
+                                <td>${post.comments ? Object.keys(post.comments).length : 0}</td>
+                                <td>${post.createdAt ? timeAgo(post.createdAt) : '未知'}</td>
+                                <td>
+                                    <button class="btn btn-delete" onclick="deletePost('${pid}')">删除</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+            } catch (error) {
+                console.error('加载帖子列表失败:', error);
+                postList.innerHTML = '<p style="text-align:center;color:#dc3545;">加载失败</p>';
+            }
+        }
+
+        window.setAdmin = async function(uid) {
+            if (!confirm('确定要将该用户设为管理员？')) return;
+            
+            try {
+                await update(ref(database, `users/${uid}`), { role: 2 });
+                alert('设置成功');
+                loadUsers();
+            } catch (error) {
+                console.error('设置管理员失败:', error);
+                alert('设置失败');
+            }
+        };
+
+        window.deleteUser = async function(uid) {
+            if (!confirm('确定要删除该用户？')) return;
+            
+            try {
+                await remove(ref(database, `users/${uid}`));
+                alert('删除成功');
+                loadUsers();
+                loadStats();
+            } catch (error) {
+                console.error('删除用户失败:', error);
+                alert('删除失败');
+            }
+        };
+
+        window.deletePost = async function(pid) {
+            if (!confirm('确定要删除该帖子？')) return;
+            
+            try {
+                await remove(ref(database, `posts/${pid}`));
+                alert('删除成功');
+                loadPosts();
+                loadStats();
+            } catch (error) {
+                console.error('删除帖子失败:', error);
+                alert('删除失败');
+            }
+        };
+
+        function timeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = (now - date) / 1000;
+
+            if (diff < 60) return Math.floor(diff) + '秒前';
+            if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+            if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+            if (diff < 2592000) return Math.floor(diff / 86400) + '天前';
+            return date.toLocaleDateString('zh-CN');
+        }
+    </script>
+</body>
+</html>
