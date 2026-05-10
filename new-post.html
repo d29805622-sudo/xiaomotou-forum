@@ -56,7 +56,7 @@
             color: #e0d4f5;
             font-size: 15px;
         }
-        .form-group input[type="text"],
+        .form-group input,
         .form-group textarea,
         .form-group select {
             width: 100%;
@@ -79,25 +79,6 @@
             outline: none;
             border-color: #7c52d6;
             box-shadow: 0 0 20px rgba(124, 82, 214, 0.3);
-        }
-        .file-upload {
-            border: 2px dashed #6348a0;
-            padding: 30px;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .file-upload:hover {
-            border-color: #7c52d6;
-            background: rgba(124, 82, 214, 0.1);
-        }
-        .file-upload input[type="file"] {
-            display: none;
-        }
-        .file-upload-text {
-            color: #9988bb;
-            font-size: 14px;
         }
         .submit-btn {
             width: 100%;
@@ -138,6 +119,15 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
+        .info {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid #ffc107;
+            color: #ffc107;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
         .back-link {
             display: inline-block;
             margin-bottom: 20px;
@@ -160,12 +150,15 @@
     </div>
 
     <div class="main">
-        <a href="#" onclick="goBack()" class="back-link">← 返回板块</a>
+        <a href="index.html" class="back-link">← 返回首页</a>
 
         <div class="form-box">
             <h2>发布帖子</h2>
 
             <div id="message"></div>
+            <div id="infoMessage" class="info" style="display:none;">
+                ⚠️ Firebase未配置，请先配置Firebase后使用发帖功能
+            </div>
 
             <form id="postForm">
                 <div class="form-group">
@@ -181,25 +174,15 @@
 
                 <div class="form-group">
                     <label>帖子标题</label>
-                    <input type="text" id="title" placeholder="请输入帖子标题" required>
+                    <input type="text" id="title" placeholder="请输入帖子标题" required disabled>
                 </div>
 
                 <div class="form-group">
                     <label>帖子内容</label>
-                    <textarea id="content" placeholder="请输入帖子内容..." required></textarea>
+                    <textarea id="content" placeholder="请输入帖子内容..." disabled></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label>附件上传（可选）</label>
-                    <div class="file-upload" onclick="document.getElementById('file').click()">
-                        <input type="file" id="file">
-                        <div class="file-upload-text" id="fileText">
-                            📎 点击选择文件 | 支持任意格式文件
-                        </div>
-                    </div>
-                </div>
-
-                <button type="submit" class="submit-btn" id="submitBtn">发布帖子</button>
+                <button type="submit" class="submit-btn" id="submitBtn" disabled>Firebase未配置</button>
             </form>
         </div>
     </div>
@@ -209,10 +192,6 @@
     </footer>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-        import { getDatabase, ref, push } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
-
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -223,95 +202,104 @@
             appId: "YOUR_APP_ID"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const database = getDatabase(app);
+        let app, auth, database;
+        let firebaseInitialized = false;
 
         const params = new URLSearchParams(window.location.search);
         const defaultCateId = params.get('cate_id') || '';
 
-        if (defaultCateId) {
-            document.getElementById('categorySelect').value = defaultCateId;
+        try {
+            const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js');
+            const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js');
+            const { getDatabase, ref, push } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+            
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            database = getDatabase(app);
+            firebaseInitialized = true;
+
+            if (defaultCateId) {
+                document.getElementById('categorySelect').value = defaultCateId;
+            }
+
+            onAuthStateChanged(auth, (user) => {
+                if (!user) {
+                    showMessage('请先登录后再发帖', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                } else {
+                    document.querySelectorAll('#postForm input, #postForm textarea, #postForm button').forEach(el => {
+                        el.disabled = false;
+                    });
+                    document.getElementById('submitBtn').textContent = '发布帖子';
+                    document.getElementById('infoMessage').style.display = 'none';
+                }
+            });
+
+            const postForm = document.getElementById('postForm');
+            const submitBtn = document.getElementById('submitBtn');
+
+            postForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const user = auth.currentUser;
+                if (!user) {
+                    showMessage('请先登录', 'error');
+                    return;
+                }
+
+                const categoryId = document.getElementById('categorySelect').value;
+                const title = document.getElementById('title').value.trim();
+                const content = document.getElementById('content').value.trim();
+
+                if (!categoryId || !title || !content) {
+                    showMessage('请填写所有必填项', 'error');
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = '发布中...';
+
+                try {
+                    const newPost = {
+                        cateId: categoryId,
+                        title: title,
+                        content: content,
+                        authorId: user.uid,
+                        authorName: user.displayName || user.email,
+                        createdAt: new Date().toISOString(),
+                        downloadCount: 0
+                    };
+
+                    const postRef = await push(ref(database, 'posts'), newPost);
+
+                    showMessage('发布成功！正在跳转到帖子...', 'success');
+                    
+                    setTimeout(() => {
+                        window.location.href = `post.html?id=${postRef.key}`;
+                    }, 1500);
+
+                } catch (error) {
+                    console.error('发布帖子失败:', error);
+                    showMessage('发布失败: ' + error.message, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '发布帖子';
+                }
+            });
+
+        } catch (error) {
+            console.error('Firebase初始化失败:', error);
+            document.getElementById('infoMessage').style.display = 'block';
+            document.getElementById('infoMessage').innerHTML = `
+                ⚠️ Firebase未配置<br>
+                <small>请查看 FIREBASE-DEPLOY.md 了解如何配置Firebase</small>
+            `;
         }
-
-        onAuthStateChanged(auth, (user) => {
-            if (!user) {
-                showMessage('请先登录后再发帖', 'error');
-                setTimeout(() => {
-                    window.location.href = 'login.html';
-                }, 2000);
-            }
-        });
-
-        document.getElementById('file').addEventListener('change', function() {
-            const fileName = this.files[0] ? this.files[0].name : '未选择文件';
-            document.getElementById('fileText').textContent = '📎 已选择: ' + fileName;
-        });
-
-        const postForm = document.getElementById('postForm');
-        const submitBtn = document.getElementById('submitBtn');
-
-        postForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const user = auth.currentUser;
-            if (!user) {
-                showMessage('请先登录', 'error');
-                return;
-            }
-
-            const categoryId = document.getElementById('categorySelect').value;
-            const title = document.getElementById('title').value.trim();
-            const content = document.getElementById('content').value.trim();
-            const fileInput = document.getElementById('file');
-
-            if (!categoryId || !title || !content) {
-                showMessage('请填写所有必填项', 'error');
-                return;
-            }
-
-            submitBtn.disabled = true;
-            submitBtn.textContent = '发布中...';
-
-            try {
-                const newPost = {
-                    cateId: categoryId,
-                    title: title,
-                    content: content,
-                    authorId: user.uid,
-                    authorName: user.displayName || user.email,
-                    createdAt: new Date().toISOString(),
-                    downloadCount: 0
-                };
-
-                const postRef = await push(ref(database, 'posts'), newPost);
-
-                showMessage('发布成功！正在跳转到帖子...', 'success');
-                
-                setTimeout(() => {
-                    window.location.href = `post.html?id=${postRef.key}`;
-                }, 1500);
-
-            } catch (error) {
-                console.error('发布帖子失败:', error);
-                showMessage('发布失败: ' + error.message, 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = '发布帖子';
-            }
-        });
 
         function showMessage(text, type) {
             document.getElementById('message').innerHTML = `<div class="${type}">${text}</div>`;
         }
-
-        window.goBack = function() {
-            const categoryId = document.getElementById('categorySelect').value;
-            if (categoryId) {
-                window.location.href = `category.html?id=${categoryId}`;
-            } else {
-                window.location.href = 'index.html';
-            }
-        };
     </script>
 </body>
 </html>

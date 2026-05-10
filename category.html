@@ -134,6 +134,11 @@
             padding: 60px 20px;
             color: #9988bb;
         }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #c9a8ff;
+        }
         footer {
             text-align: center;
             padding: 25px;
@@ -157,20 +162,23 @@
     <div class="nav">
         <a href="index.html">首页</a>
         <a href="#" id="currentCate">加载中...</a>
-        <a href="#">游戏资源</a>
-        <a href="#">文件下载</a>
+        <a href="category.html?id=3">游戏资源</a>
+        <a href="category.html?id=4">同人创作</a>
     </div>
 
-    <div id="userBar" class="user-bar"></div>
+    <div id="userBar" class="user-bar">
+        <a href="login.html">登录</a>
+        <a href="register.html">注册</a>
+    </div>
 
     <div class="main">
         <div class="page-header">
             <h2 id="categoryTitle">板块名称</h2>
-            <a href="#" id="newPostBtn" class="new-post-btn">发布帖子</a>
+            <a href="new-post.html" id="newPostBtn" class="new-post-btn">发布帖子</a>
         </div>
 
         <div id="postList" class="post-list">
-            <div class="empty">加载中...</div>
+            <div class="loading">正在加载帖子...</div>
         </div>
     </div>
 
@@ -179,10 +187,6 @@
     </footer>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-        import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
-
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -192,10 +196,6 @@
             messagingSenderId: "YOUR_SENDER_ID",
             appId: "YOUR_APP_ID"
         };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const database = getDatabase(app);
 
         const categories = {
             '1': { name: '小魔头暴露啦专区', desc: '动漫剧情、角色、同人讨论' },
@@ -207,30 +207,54 @@
         const params = new URLSearchParams(window.location.search);
         const categoryId = params.get('id') || '1';
 
-        document.getElementById('currentCate').textContent = categories[categoryId].name;
-        document.getElementById('categoryTitle').textContent = categories[categoryId].name;
+        document.getElementById('currentCate').textContent = categories[categoryId]?.name || '未知板块';
+        document.getElementById('categoryTitle').textContent = categories[categoryId]?.name || '未知板块';
 
-        onAuthStateChanged(auth, (user) => {
-            const userBar = document.getElementById('userBar');
-            if (user) {
-                userBar.innerHTML = `
-                    <span class="user-info">欢迎，${user.displayName || user.email}</span>
-                    <a href="admin.html">管理后台</a>
-                    <a href="#" onclick="logout()">退出</a>
-                `;
-                document.getElementById('newPostBtn').href = `new-post.html?cate_id=${categoryId}`;
-            } else {
-                userBar.innerHTML = `
-                    <a href="login.html">登录</a>
-                    <a href="register.html">注册</a>
-                `;
-                document.getElementById('newPostBtn').textContent = '登录后发帖';
-                document.getElementById('newPostBtn').href = 'login.html';
-            }
-        });
+        let firebaseInitialized = false;
+        let app, auth, database;
+
+        try {
+            const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js');
+            const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js');
+            const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+            
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            database = getDatabase(app);
+            firebaseInitialized = true;
+
+            onAuthStateChanged(auth, (user) => {
+                const userBar = document.getElementById('userBar');
+                if (user) {
+                    userBar.innerHTML = `
+                        <span class="user-info">欢迎，${user.displayName || user.email}</span>
+                        <a href="admin.html">管理后台</a>
+                        <a href="#" onclick="logout()">退出</a>
+                    `;
+                    document.getElementById('newPostBtn').href = `new-post.html?cate_id=${categoryId}`;
+                }
+            });
+
+            loadPosts();
+        } catch (error) {
+            console.error('Firebase初始化失败:', error);
+            document.getElementById('postList').innerHTML = `
+                <div class="empty">
+                    <p>⚠️ Firebase未配置，帖子功能暂时不可用</p>
+                    <p style="margin-top:10px;font-size:14px;">
+                        <a href="index.html" style="color:#c9a8ff;">返回首页</a>
+                    </p>
+                </div>
+            `;
+        }
 
         async function loadPosts() {
+            if (!firebaseInitialized) return;
+
+            const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+            const database = getDatabase(app);
             const postList = document.getElementById('postList');
+
             try {
                 const snapshot = await get(ref(database, 'posts'));
                 
@@ -252,7 +276,7 @@
                 postList.innerHTML = categoryPosts.map(([id, post]) => `
                     <div class="post-item">
                         <div class="post-info">
-                            <h3><a href="post.html?id=${id}">${post.title}</a></h3>
+                            <h3><a href="post.html?id=${id}">${post.title || '无标题'}</a></h3>
                             <div class="post-meta">
                                 <span>作者：${post.authorName || '匿名'}</span>
                                 <span>${timeAgo(post.createdAt)}</span>
@@ -272,6 +296,7 @@
         }
 
         function timeAgo(dateString) {
+            if (!dateString) return '未知时间';
             const date = new Date(dateString);
             const now = new Date();
             const diff = (now - date) / 1000;
@@ -283,15 +308,16 @@
             return date.toLocaleDateString('zh-CN');
         }
 
-        window.logout = function() {
+        window.logout = async function() {
             if (confirm('确定要退出登录吗？')) {
-                signOut(auth).then(() => {
-                    window.location.href = 'index.html';
-                });
+                const { signOut } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js');
+                const { getAuth } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js');
+                const { getAuth: getAuthInstance } = { getAuth };
+                const authInstance = getAuthInstance(app);
+                await signOut(authInstance);
+                window.location.href = 'index.html';
             }
         };
-
-        loadPosts();
     </script>
 </body>
 </html>

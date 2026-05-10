@@ -154,6 +154,12 @@
             font-size: 14px;
             margin-top: 40px;
         }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #c9a8ff;
+            font-size: 18px;
+        }
         @media (max-width: 768px) {
             .top-title h1 { font-size: 36px; }
             .stats-bar { flex-direction: column; gap: 15px; }
@@ -170,17 +176,20 @@
 
     <div class="nav">
         <a href="index.html">首页</a>
-        <a href="#">动漫专区</a>
-        <a href="#">游戏资源</a>
-        <a href="#">文件下载</a>
+        <a href="category.html?id=1">动漫专区</a>
+        <a href="category.html?id=3">游戏资源</a>
+        <a href="category.html?id=4">同人创作</a>
     </div>
 
     <div id="userBar" class="user-bar">
-        <!-- 动态填充 -->
+        <a href="login.html">登录</a>
+        <a href="register.html">注册</a>
     </div>
 
     <div class="main">
-        <div class="stats-bar">
+        <div id="loadingMessage" class="loading">正在加载...</div>
+
+        <div class="stats-bar" id="statsBar" style="display: none;">
             <div class="stat-item">
                 <div class="num" id="userCount">0</div>
                 <div class="label">会员总数</div>
@@ -195,7 +204,7 @@
             </div>
         </div>
 
-        <div class="block">
+        <div class="block" id="forumBlock">
             <h2>论坛板块</h2>
             <div class="category-item">
                 <div class="category-info">
@@ -245,11 +254,7 @@
     </footer>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-        import { getDatabase, ref, onValue, get } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
-
-        // Firebase 配置
+        // Firebase 配置 - 请替换为您自己的配置
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -260,31 +265,68 @@
             appId: "YOUR_APP_ID"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const database = getDatabase(app);
+        let app, auth, database;
+        let firebaseInitialized = false;
 
-        const userBar = document.getElementById('userBar');
+        // 尝试初始化 Firebase
+        try {
+            import('https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js').then(firebaseModule => {
+                const { initializeApp } = firebaseModule;
+                
+                import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js').then(authModule => {
+                    const { getAuth, onAuthStateChanged, signOut } = authModule;
+                    
+                    import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js').then(dbModule => {
+                        const { getDatabase, ref, get } = dbModule;
+                        
+                        // 初始化 Firebase
+                        app = initializeApp(firebaseConfig);
+                        auth = getAuth(app);
+                        database = getDatabase(app);
+                        firebaseInitialized = true;
+                        
+                        // 监听用户状态
+                        onAuthStateChanged(auth, (user) => {
+                            const userBar = document.getElementById('userBar');
+                            if (user) {
+                                userBar.innerHTML = `
+                                    <span class="user-info">欢迎，${user.displayName || user.email}</span>
+                                    <a href="admin.html">管理后台</a>
+                                    <a href="#" onclick="logout()">退出登录</a>
+                                `;
+                            }
+                        });
+                        
+                        // 加载统计数据
+                        loadStats();
+                        
+                    }).catch(err => {
+                        console.error('Firebase Database加载失败:', err);
+                        showOfflineMode();
+                    });
+                }).catch(err => {
+                    console.error('Firebase Auth加载失败:', err);
+                    showOfflineMode();
+                });
+            }).catch(err => {
+                console.error('Firebase Core加载失败:', err);
+                showOfflineMode();
+            });
+        } catch (error) {
+            console.error('Firebase初始化失败:', error);
+            showOfflineMode();
+        }
 
-        // 监听用户状态
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                userBar.innerHTML = `
-                    <span class="user-info">欢迎，${user.displayName || user.email}</span>
-                    <a href="admin.html">管理后台</a>
-                    <a href="#" onclick="logout()">退出登录</a>
-                `;
-            } else {
-                userBar.innerHTML = `
-                    <a href="login.html">登录</a>
-                    <a href="register.html">注册</a>
-                `;
-            }
-        });
-
-        // 加载统计数据
         async function loadStats() {
+            if (!firebaseInitialized) {
+                showOfflineMode();
+                return;
+            }
+
             try {
+                const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+                const database = getDatabase(app);
+                
                 const usersSnapshot = await get(ref(database, 'users'));
                 const userCount = usersSnapshot.exists() ? Object.keys(usersSnapshot.val()).length : 0;
                 
@@ -308,9 +350,22 @@
                     const catePosts = Object.values(posts).filter(p => p.cateId == i).length;
                     document.getElementById(`cate${i}Posts`).textContent = catePosts;
                 }
+
+                document.getElementById('loadingMessage').style.display = 'none';
+                document.getElementById('statsBar').style.display = 'flex';
             } catch (error) {
                 console.error('加载统计数据失败:', error);
+                showOfflineMode();
             }
+        }
+
+        function showOfflineMode() {
+            document.getElementById('loadingMessage').textContent = '⚠️ Firebase未配置，论坛功能暂时不可用';
+            document.getElementById('loadingMessage').style.color = '#ffc107';
+            document.getElementById('statsBar').style.display = 'flex';
+            document.getElementById('userCount').textContent = '-';
+            document.getElementById('postCount').textContent = '-';
+            document.getElementById('commentCount').textContent = '-';
         }
 
         // 登出函数
@@ -323,9 +378,6 @@
                 });
             }
         };
-
-        // 页面加载完成后执行
-        loadStats();
     </script>
 </body>
 </html>

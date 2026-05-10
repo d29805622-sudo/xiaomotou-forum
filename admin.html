@@ -40,7 +40,7 @@
             background: #3d2e66;
             transition: all 0.3s;
         }
-        .nav a:hover, .nav a.active {
+        .nav a:hover {
             background: #7c52d6;
         }
         .main {
@@ -179,10 +179,6 @@
     </footer>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-        import { getDatabase, ref, get, remove, update } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
-
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -193,45 +189,61 @@
             appId: "YOUR_APP_ID"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const database = getDatabase(app);
+        let app, auth, database;
+        let firebaseInitialized = false;
 
-        const adminContent = document.getElementById('adminContent');
-        const adminCheck = document.getElementById('adminCheck');
+        try {
+            const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js');
+            const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js');
+            const { getDatabase, ref, get, remove, update } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+            
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            database = getDatabase(app);
+            firebaseInitialized = true;
 
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                alert('请先登录');
-                window.location.href = 'login.html';
-                return;
-            }
-
-            try {
-                const userRef = ref(database, `users/${user.uid}`);
-                const snapshot = await get(userRef);
-                
-                if (!snapshot.exists() || snapshot.val().role !== 2) {
-                    alert('您没有管理员权限');
-                    window.location.href = 'index.html';
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    alert('请先登录');
+                    window.location.href = 'login.html';
                     return;
                 }
 
-                adminCheck.style.display = 'none';
-                adminContent.style.display = 'block';
-                
-                loadStats();
-                loadUsers();
-                loadPosts();
-            } catch (error) {
-                console.error('验证失败:', error);
-                alert('验证失败');
-                window.location.href = 'login.html';
-            }
-        });
+                try {
+                    const userRef = ref(database, `users/${user.uid}`);
+                    const snapshot = await get(userRef);
+                    
+                    if (!snapshot.exists() || snapshot.val().role !== 2) {
+                        alert('您没有管理员权限');
+                        window.location.href = 'index.html';
+                        return;
+                    }
+
+                    document.getElementById('adminCheck').style.display = 'none';
+                    document.getElementById('adminContent').style.display = 'block';
+                    
+                    loadStats();
+                    loadUsers();
+                    loadPosts();
+                } catch (error) {
+                    console.error('验证失败:', error);
+                    alert('验证失败');
+                    window.location.href = 'login.html';
+                }
+            });
+
+        } catch (error) {
+            console.error('Firebase初始化失败:', error);
+            document.getElementById('adminCheck').textContent = '⚠️ Firebase未配置，无法访问管理后台';
+        }
 
         async function loadStats() {
+            if (!firebaseInitialized) return;
+
             try {
+                const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+                const database = getDatabase(app);
+                
                 const usersSnapshot = await get(ref(database, 'users'));
                 const userCount = usersSnapshot.exists() ? Object.keys(usersSnapshot.val()).length : 0;
                 
@@ -255,7 +267,12 @@
         }
 
         async function loadUsers() {
+            if (!firebaseInitialized) return;
+            
+            const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+            const database = getDatabase(app);
             const userList = document.getElementById('userList');
+            
             try {
                 const snapshot = await get(ref(database, 'users'));
                 
@@ -299,7 +316,12 @@
         }
 
         async function loadPosts() {
+            if (!firebaseInitialized) return;
+            
+            const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+            const database = getDatabase(app);
             const postList = document.getElementById('postList');
+            
             try {
                 const snapshot = await get(ref(database, 'posts'));
                 
@@ -324,7 +346,7 @@
                         </tr>
                         ${postArray.map(([pid, post]) => `
                             <tr>
-                                <td><a href="post.html?id=${pid}" style="color:#c9a8ff;">${post.title}</a></td>
+                                <td><a href="post.html?id=${pid}" style="color:#c9a8ff;">${post.title || '无标题'}</a></td>
                                 <td>${post.authorName || '匿名'}</td>
                                 <td>${post.comments ? Object.keys(post.comments).length : 0}</td>
                                 <td>${post.createdAt ? timeAgo(post.createdAt) : '未知'}</td>
@@ -345,6 +367,8 @@
             if (!confirm('确定要将该用户设为管理员？')) return;
             
             try {
+                const { getDatabase, ref, update } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+                const database = getDatabase(app);
                 await update(ref(database, `users/${uid}`), { role: 2 });
                 alert('设置成功');
                 loadUsers();
@@ -358,6 +382,8 @@
             if (!confirm('确定要删除该用户？')) return;
             
             try {
+                const { getDatabase, ref, remove } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+                const database = getDatabase(app);
                 await remove(ref(database, `users/${uid}`));
                 alert('删除成功');
                 loadUsers();
@@ -372,6 +398,8 @@
             if (!confirm('确定要删除该帖子？')) return;
             
             try {
+                const { getDatabase, ref, remove } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+                const database = getDatabase(app);
                 await remove(ref(database, `posts/${pid}`));
                 alert('删除成功');
                 loadPosts();
@@ -383,6 +411,7 @@
         };
 
         function timeAgo(dateString) {
+            if (!dateString) return '未知';
             const date = new Date(dateString);
             const now = new Date();
             const diff = (now - date) / 1000;

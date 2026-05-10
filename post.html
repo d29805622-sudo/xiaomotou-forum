@@ -108,30 +108,6 @@
             white-space: pre-wrap;
             word-wrap: break-word;
         }
-        .download-section {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #3d2e66;
-        }
-        .download-section h3 {
-            color: #ffd878;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-        .download-btn {
-            display: inline-block;
-            background: linear-gradient(135deg, #28a745, #1e7e34);
-            color: #fff;
-            padding: 14px 28px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        .download-btn:hover {
-            background: linear-gradient(135deg, #34ce57, #28a745);
-            transform: translateY(-2px);
-        }
         .comments-section {
             background: #271c44;
             border-radius: 12px;
@@ -235,11 +211,14 @@
     <div class="nav">
         <a href="index.html">首页</a>
         <a href="#" id="currentCate">板块</a>
-        <a href="#">游戏资源</a>
-        <a href="#">文件下载</a>
+        <a href="category.html?id=3">游戏资源</a>
+        <a href="category.html?id=4">同人创作</a>
     </div>
 
-    <div id="userBar" class="user-bar"></div>
+    <div id="userBar" class="user-bar">
+        <a href="login.html">登录</a>
+        <a href="register.html">注册</a>
+    </div>
 
     <div class="main">
         <div class="breadcrumb">
@@ -254,17 +233,10 @@
                 <div class="post-meta">
                     <span>作者：<span id="postAuthor"></span></span>
                     <span>发布时间：<span id="postTime"></span></span>
-                    <span>下载次数：<span id="downloadCount">0</span></span>
                 </div>
             </div>
 
-            <div id="postBody" class="post-body"></div>
-
-            <div id="downloadSection" class="download-section" style="display: none;">
-                <h3>📎 附件下载</h3>
-                <a href="#" id="downloadBtn" class="download-btn">下载文件</a>
-                <div id="downloadInfo" class="download-info"></div>
-            </div>
+            <div id="postBody" class="post-body">正在加载内容...</div>
         </div>
 
         <div class="comments-section">
@@ -278,7 +250,9 @@
                 <a href="login.html" style="color:#c9a8ff;">登录</a>后才能发表评论
             </div>
 
-            <div id="commentList" class="comment-list"></div>
+            <div id="commentList" class="comment-list">
+                <div class="empty-comments">加载评论中...</div>
+            </div>
         </div>
     </div>
 
@@ -287,10 +261,6 @@
     </footer>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-        import { getDatabase, ref, get, push, update, increment } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
-
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -300,10 +270,6 @@
             messagingSenderId: "YOUR_SENDER_ID",
             appId: "YOUR_APP_ID"
         };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const database = getDatabase(app);
 
         const categories = {
             '1': '小魔头暴露啦专区',
@@ -315,65 +281,87 @@
         const params = new URLSearchParams(window.location.search);
         const postId = params.get('id');
 
+        let app, auth, database;
         let currentUser = null;
+        let firebaseInitialized = false;
 
-        onAuthStateChanged(auth, (user) => {
-            currentUser = user;
-            const userBar = document.getElementById('userBar');
+        try {
+            const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js');
+            const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js');
+            const { getDatabase, ref, get, push } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
             
-            if (user) {
-                userBar.innerHTML = `
-                    <span class="user-info">欢迎，${user.displayName || user.email}</span>
-                    <a href="admin.html">管理后台</a>
-                    <a href="#" onclick="logout()">退出</a>
-                `;
-                document.getElementById('commentForm').style.display = 'block';
-                document.getElementById('loginPrompt').style.display = 'none';
-            } else {
-                userBar.innerHTML = `
-                    <a href="login.html">登录</a>
-                    <a href="register.html">注册</a>
-                `;
-                document.getElementById('commentForm').style.display = 'none';
-                document.getElementById('loginPrompt').style.display = 'block';
-            }
-        });
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            database = getDatabase(app);
+            firebaseInitialized = true;
+
+            onAuthStateChanged(auth, (user) => {
+                currentUser = user;
+                const userBar = document.getElementById('userBar');
+                
+                if (user) {
+                    userBar.innerHTML = `
+                        <span class="user-info">欢迎，${user.displayName || user.email}</span>
+                        <a href="admin.html">管理后台</a>
+                        <a href="#" onclick="logout()">退出</a>
+                    `;
+                    document.getElementById('commentForm').style.display = 'block';
+                    document.getElementById('loginPrompt').style.display = 'none';
+                }
+            });
+
+            loadPost();
+        } catch (error) {
+            console.error('Firebase初始化失败:', error);
+            document.getElementById('postTitle').textContent = '帖子加载失败';
+            document.getElementById('postBody').textContent = '⚠️ Firebase未配置，无法加载帖子内容';
+            document.getElementById('commentList').innerHTML = '<div class="empty-comments">请先配置Firebase</div>';
+        }
 
         async function loadPost() {
+            if (!firebaseInitialized || !postId) {
+                document.getElementById('postTitle').textContent = '帖子不存在';
+                document.getElementById('postBody').textContent = '请从板块页面选择帖子查看';
+                document.getElementById('commentList').innerHTML = '<div class="empty-comments">无帖子信息</div>';
+                return;
+            }
+
             try {
+                const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+                const database = getDatabase(app);
+                
                 const snapshot = await get(ref(database, `posts/${postId}`));
                 
                 if (!snapshot.exists()) {
                     document.getElementById('postTitle').textContent = '帖子不存在';
+                    document.getElementById('postBody').textContent = '该帖子可能已被删除';
                     return;
                 }
 
                 const post = snapshot.val();
                 
-                document.getElementById('postTitle').textContent = post.title;
+                document.getElementById('postTitle').textContent = post.title || '无标题';
                 document.getElementById('postAuthor').textContent = post.authorName || '匿名';
-                document.getElementById('postTime').textContent = new Date(post.createdAt).toLocaleString('zh-CN');
-                document.getElementById('postBody').textContent = post.content;
-                document.getElementById('downloadCount').textContent = post.downloadCount || 0;
+                document.getElementById('postTime').textContent = post.createdAt ? new Date(post.createdAt).toLocaleString('zh-CN') : '未知';
+                document.getElementById('postBody').textContent = post.content || '无内容';
 
                 const cateId = post.cateId;
-                document.getElementById('currentCate').textContent = categories[cateId];
-                document.getElementById('cateLink').textContent = categories[cateId];
-                document.getElementById('cateLink').href = `category.html?id=${cateId}`;
-
-                if (post.fileUrl) {
-                    document.getElementById('downloadSection').style.display = 'block';
-                    document.getElementById('downloadBtn').href = post.fileUrl;
-                    document.getElementById('downloadInfo').textContent = `文件名：${post.fileName || '附件文件'}`;
+                if (categories[cateId]) {
+                    document.getElementById('currentCate').textContent = categories[cateId];
+                    document.getElementById('currentCate').href = `category.html?id=${cateId}`;
+                    document.getElementById('cateLink').textContent = categories[cateId];
+                    document.getElementById('cateLink').href = `category.html?id=${cateId}`;
                 }
 
                 loadComments(post.comments || {});
             } catch (error) {
                 console.error('加载帖子失败:', error);
+                document.getElementById('postTitle').textContent = '加载失败';
+                document.getElementById('postBody').textContent = '加载帖子时发生错误';
             }
         }
 
-        function loadComments(comments) {
+        async function loadComments(comments) {
             const commentList = document.getElementById('commentList');
             const commentCount = document.getElementById('commentCount');
             
@@ -393,12 +381,12 @@
                             <span class="comment-author">${comment.authorName || '匿名'}</span>
                             <span class="comment-time">${timeAgo(comment.createdAt)}</span>
                         </div>
-                        <div class="comment-body">${comment.content}</div>
+                        <div class="comment-body">${comment.content || ''}</div>
                     </div>
                 `).join('');
         }
 
-        document.getElementById('submitComment').addEventListener('click', async () => {
+        document.getElementById('submitComment')?.addEventListener('click', async () => {
             if (!currentUser) {
                 alert('请先登录');
                 return;
@@ -410,14 +398,17 @@
                 return;
             }
 
-            const newComment = {
-                content: content,
-                authorId: currentUser.uid,
-                authorName: currentUser.displayName || currentUser.email,
-                createdAt: new Date().toISOString()
-            };
-
             try {
+                const { getDatabase, ref, push } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+                const database = getDatabase(app);
+                
+                const newComment = {
+                    content: content,
+                    authorId: currentUser.uid,
+                    authorName: currentUser.displayName || currentUser.email,
+                    createdAt: new Date().toISOString()
+                };
+
                 await push(ref(database, `posts/${postId}/comments`), newComment);
                 document.getElementById('commentInput').value = '';
                 loadPost();
@@ -427,18 +418,8 @@
             }
         });
 
-        document.getElementById('downloadBtn').addEventListener('click', async () => {
-            try {
-                await update(ref(database, `posts/${postId}`), {
-                    downloadCount: increment(1)
-                });
-                document.getElementById('downloadCount').textContent = (parseInt(document.getElementById('downloadCount').textContent) || 0) + 1;
-            } catch (error) {
-                console.error('更新下载次数失败:', error);
-            }
-        });
-
         function timeAgo(dateString) {
+            if (!dateString) return '未知时间';
             const date = new Date(dateString);
             const now = new Date();
             const diff = (now - date) / 1000;
@@ -450,15 +431,16 @@
             return date.toLocaleDateString('zh-CN');
         }
 
-        window.logout = function() {
+        window.logout = async function() {
             if (confirm('确定要退出登录吗？')) {
-                signOut(auth).then(() => {
-                    window.location.href = 'index.html';
-                });
+                const { signOut } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js');
+                const { getAuth } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js');
+                const { getAuth: getAuthInstance } = { getAuth };
+                const authInstance = getAuthInstance(app);
+                await signOut(authInstance);
+                window.location.href = 'index.html';
             }
         };
-
-        loadPost();
     </script>
 </body>
 </html>
